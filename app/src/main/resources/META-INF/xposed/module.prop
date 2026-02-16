@@ -1,7 +1,7 @@
-# libxposed 模块属性
-# 最小 API 版本 (libxposed)
+# libxposed module properties
+# Minimum API version (libxposed)
 minApiVersion=100
-# 目标 API 版本 (libxposed)
+# Target API version (libxposed)
 targetApiVersion=100
-# 是否为静态作用域
+# Whether it is a static scope
 staticScope=true

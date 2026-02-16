@@ -10,10 +10,10 @@ import io.github.libxposed.api.annotations.BeforeInvocation;
 import io.github.libxposed.api.annotations.XposedHooker;
 
 /**
- * 这是 Xposed 模块的入口类。
- * 客户化建议：
- * 1. 修改包名 `com.example.module` 为你自己的包名。
- * 2. 在 `onSystemServerLoaded` 或 `onPackageLoaded` 中添加你的 Hook 逻辑。
+ * This is the entry point class for the Xposed module.
+ * Customization suggestions:
+ * 1. Change the package name `com.example.module` to your own.
+ * 2. Add your Hook logic in `onSystemServerLoaded` or `onPackageLoaded`.
  */
 @SuppressLint({"PrivateApi", "BlockedPrivateApi"})
 public class MainModule extends XposedModule {
@@ -25,8 +25,8 @@ public class MainModule extends XposedModule {
     @Override
     public void onSystemServerLoaded(@NonNull SystemServerLoadedParam param) {
         super.onSystemServerLoaded(param);
-        // 在这里添加针对 System Server 的 Hook 逻辑
-        // 例如:
+        // Add Hook logic for System Server here
+        // For example:
         // try {
         //     var classLoader = param.getClassLoader();
         //     var clazz = classLoader.loadClass("com.android.server.wm.WindowManagerService");
@@ -39,25 +39,25 @@ public class MainModule extends XposedModule {
     @Override
     public void onPackageLoaded(@NonNull PackageLoadedParam param) {
         super.onPackageLoaded(param);
-        // 在这里添加针对特定应用的 Hook 逻辑
+        // Add Hook logic for specific applications here
         // if (param.getPackageName().equals("com.target.package")) {
         //     // ...
         // }
     }
 
     /**
-     * 这是一个简单的 Hooker 示例。
+     * This is a simple Hooker example.
      */
     @XposedHooker
     private static class ExampleHooker implements Hooker {
         @BeforeInvocation
         public static void before(@NonNull BeforeHookCallback callback) {
-            // 在方法执行前执行的逻辑
+            // Logic to execute before method execution
         }
 
         // @AfterInvocation
         // public static void after(@NonNull AfterHookCallback callback) {
-        //     // 在方法执行后执行的逻辑
+        //     // Logic to execute after method execution
         // }
     }
 }

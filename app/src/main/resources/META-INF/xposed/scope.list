@@ -1,5 +1,5 @@
-# 作用域列表，每行一个包名
-# 如果是系统模块，可以使用 'system'
+# Scope list, one package name per line
+# For system modules, you can use 'system'
 system
-# 例如:
+# For example:
 # com.android.systemui
