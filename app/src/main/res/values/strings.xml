@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Xposed Module Template</string>
-    <string name="xposed_description">This is an Xposed module template based on libxposed.</string>
+    <string name="app_name">熊出没快跑4399内购</string>
+    <string name="xposed_description">SDK内购测试</string>
 </resources>
