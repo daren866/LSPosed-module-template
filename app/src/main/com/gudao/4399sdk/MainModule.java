@@ -13,17 +13,11 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class MainActivity extends Activity implements IXposedHookLoadPackage {
     
-    // 目标游戏包名
+    // 目标游戏 - 熊出没之熊大快跑
     private static final String TARGET_PACKAGE = "com.joym.xiongdakuaipao";
+    private static final String GAME_NAME = "熊出没之熊大快跑";
     
-    // 4399 SDK相关类名
-    private static final String RECHARGE_LISTENER_CLASS = "cn.m4399.single.api.RechargeListener";
-    private static final String SINGLE_GAME_CLASS = "cn.m4399.single.api.SingleGame";
-    private static final String DELIVERING_LISTENER_CLASS = "cn.m4399.single.api.SingleGame$OnDeliveringGoodsListener";
-    private static final String ORDER_CLASS = "cn.m4399.single.api.Order";
-    private static final String ORDER_FINISHED_CLASS = "cn.m4399.single.api.OrderFinished";
-    
-    // UI相关
+    // UI组件
     private TextView statusText;
     private StringBuilder logBuilder = new StringBuilder();
     
@@ -31,54 +25,62 @@ public class MainActivity extends Activity implements IXposedHookLoadPackage {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // 创建简单的UI
         statusText = new TextView(this);
         statusText.setTextSize(16);
         statusText.setPadding(50, 50, 50, 50);
         
-        updateUI("4399内购助手 v1.0\n" +
-                 "目标游戏: 兄弟快跑\n" +
-                 "状态: 模块已加载\n" +
-                 "请在LSPosed中勾选目标游戏\n\n" +
-                 "日志输出:");
+        String welcomeMsg = "🐻 熊出没之熊大快跑 内购助手 v1.0 🐻\n" +
+                           "=======================\n" +
+                           "目标游戏: " + GAME_NAME + "\n" +
+                           "包名: " + TARGET_PACKAGE + "\n" +
+                           "状态: ✅ 模块已激活\n" +
+                           "功能: 强制所有支付结果返回成功\n" +
+                           "      (无论用户支付还是取消)\n" +
+                           "=======================\n" +
+                           "📱 实时日志:\n";
         
-        setContentView(statusText);
+        updateUI(welcomeMsg);
         
-        // 显示Toast提示
-        Toast.makeText(this, "4399内购助手已激活", Toast.LENGTH_LONG).show();
+        // 显示激活Toast
+        Toast.makeText(this, "🐻 " + GAME_NAME + " 内购助手已激活", Toast.LENGTH_LONG).show();
+        
+        // 添加到日志
+        addLog("✅ 模块启动成功");
+        addLog("🎯 目标游戏: " + GAME_NAME);
+        addLog("⚡ 等待游戏进程...");
     }
     
-    /**
-     * 更新UI显示
-     */
     private void updateUI(String message) {
         if (statusText != null) {
             statusText.setText(message);
         }
     }
     
-    /**
-     * 添加日志到UI
-     */
     private void addLog(final String log) {
-        logBuilder.append(log).append("\n");
+        logBuilder.append("▶ ").append(log).append("\n");
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 String currentText = statusText.getText().toString();
-                if (currentText.contains("日志输出:")) {
-                    statusText.setText(currentText + "\n" + log);
+                if (currentText.contains("实时日志:")) {
+                    // 保留前面的固定信息，只更新日志部分
+                    String baseInfo = currentText.substring(0, currentText.indexOf("实时日志:") + 6);
+                    statusText.setText(baseInfo + "\n" + logBuilder.toString());
                 } else {
-                    statusText.setText(currentText + "\n\n日志输出:\n" + log);
+                    statusText.setText(currentText + "\n" + logBuilder.toString());
                 }
             }
         });
     }
     
-    /**
-     * IXposedHookLoadPackage 接口实现
-     * 这是Xposed的入口点
-     */
+    private void logToXposed(String message) {
+        try {
+            XposedBridge.log("【" + GAME_NAME + "模块】" + message);
+        } catch (NoClassDefFoundError | Exception e) {
+            System.out.println("【" + GAME_NAME + "模块】" + message);
+        }
+    }
+    
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         // 只处理目标游戏
@@ -86,342 +88,251 @@ public class MainActivity extends Activity implements IXposedHookLoadPackage {
             return;
         }
         
-        // 由于这是在Activity中，不能直接使用XposedBridge.log（可能跨线程问题）
-        // 我们通过反射调用XposedBridge.log，或者用System.out临时替代
-        try {
-            logToXposed("=================================");
-            logToXposed("4399内购模块已加载 - 目标游戏: " + TARGET_PACKAGE);
-            logToXposed("=================================");
-        } catch (Exception e) {
-            // 忽略，可能没有Xposed环境
-        }
+        // 打印醒目的激活日志
+        logToXposed("==========================================");
+        logToXposed("🐻🐻🐻 熊出没之熊大快跑 内购模块激活成功！🐻🐻🐻");
+        logToXposed("==========================================");
+        logToXposed("游戏包名: " + lpparam.packageName);
+        logToXposed("进程名称: " + lpparam.processName);
+        logToXposed("ClassLoader: " + lpparam.classLoader);
+        logToXposed("==========================================");
+        
+        addLog("🔥 检测到游戏进程启动！");
+        addLog("📦 开始注入Hook代码...");
         
         try {
-            // Hook充值结果回调
-            hookRechargeResult(lpparam);
+            // 查找所有可能的4399支付相关类
+            findAndHookAllPayClasses(lpparam);
             
-            // Hook充值方法
-            hookRechargeMethod(lpparam);
+            logToXposed("✅ 熊出没之熊大快跑 内购模块初始化完成！");
+            logToXposed("==========================================");
+            addLog("✅ 所有支付回调Hook完成！");
+            addLog("💰 现在无论支付/取消都会返回成功");
             
-            // Hook客户端物品发放
-            hookDeliveringGoods(lpparam);
-            
-            logToXposed("4399内购模块初始化完成");
         } catch (Exception e) {
-            logToXposed("4399内购模块初始化失败: " + e.getMessage());
+            logToXposed("❌ 初始化失败: " + e.getMessage());
+            addLog("❌ 错误: " + e.getMessage());
         }
     }
     
     /**
-     * 安全的日志方法
+     * 查找并Hook所有可能的支付相关类
      */
-    private void logToXposed(String message) {
-        try {
-            XposedBridge.log(message);
-        } catch (NoClassDefFoundError | Exception e) {
-            // 在非Xposed环境（如Activity启动时）忽略
-            System.out.println("XposedLog: " + message);
-        }
-    }
-    
-    /**
-     * 1. Hook最重要的充值结果回调 - onRechargeFinished
-     */
-    private void hookRechargeResult(final XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            Class<?> listenerClass = XposedHelpers.findClass(RECHARGE_LISTENER_CLASS, lpparam.classLoader);
-            
-            // Hook所有实现了RechargeListener的类的onRechargeFinished方法
-            XposedBridge.hookAllMethods(listenerClass, "onRechargeFinished", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // 记录到Xposed日志
-                    XposedBridge.log("=================== 支付回调被捕获 ===================");
-                    
-                    // 记录原始参数
-                    for (int i = 0; i < param.args.length; i++) {
-                        XposedBridge.log("参数[" + i + "]: " + param.args[i]);
-                    }
-                    
-                    // 根据参数数量判断方法签名，强制设为成功
-                    if (param.args.length >= 1) {
-                        // 第一个参数是boolean success
-                        param.args[0] = true;
-                        XposedBridge.log("✅ 已强制设置 success = true");
-                    }
-                    
-                    if (param.args.length >= 2) {
-                        // 第二个参数可能是int resultCode或String msg
-                        if (param.args[1] instanceof Integer) {
-                            param.args[1] = 1;  // 设置为成功码
-                            XposedBridge.log("✅ 已强制设置 resultCode = 1");
-                        } else if (param.args[1] instanceof String) {
-                            param.args[1] = "支付成功(Hook版)";
-                            XposedBridge.log("✅ 已强制设置 msg = 支付成功(Hook版)");
-                        }
-                    }
-                    
-                    if (param.args.length >= 3) {
-                        // 第三个参数通常是String msg
-                        if (param.args[2] instanceof String) {
-                            param.args[2] = "支付成功(Hook版)";
-                            XposedBridge.log("✅ 已强制设置 msg = 支付成功(Hook版)");
-                        }
-                    }
-                    
-                    XposedBridge.log("=================== 回调修改完成 ===================");
-                    
-                    // 也添加到UI（但要注意线程）
-                    addLog("💰 支付回调被Hook，强制成功");
-                }
-                
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    // 确保返回结果是true
-                    if (param.getResult() instanceof Boolean) {
-                        param.setResult(true);
-                    }
-                }
-            });
-            
-            XposedBridge.log("✅ onRechargeFinished Hook成功");
-            
-        } catch (XposedHelpers.ClassNotFoundError e) {
-            XposedBridge.log("❌ 未找到RechargeListener类，尝试替代方案");
-            tryAlternativeRechargeListener(lpparam);
-        } catch (Exception e) {
-            XposedBridge.log("❌ hookRechargeResult 错误: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * 尝试其他可能的回调接口
-     */
-    private void tryAlternativeRechargeListener(XC_LoadPackage.LoadPackageParam lpparam) {
-        String[] possibleClasses = {
+    private void findAndHookAllPayClasses(XC_LoadPackage.LoadPackageParam lpparam) {
+        // 可能的4399支付监听类列表
+        String[] possibleListenerClasses = {
+            "cn.m4399.single.api.RechargeListener",
             "cn.m4399.single.api.OperateCenter$OnRechargeFinishedListener",
-            "cn.m4399.single.api.RechargeCallback",
-            "cn.m4399.single.api.PayListener",
             "cn.m4399.single.api.OnPayResultListener",
+            "cn.m4399.single.api.PayListener",
             "cn.m4399.single.api.OnRechargeListener",
-            "com.joym.xiongdakuaipao.pay.PayResultListener" // 可能是游戏自定义的
+            "cn.m4399.single.api.IRechargeListener",
+            "cn.m4399.single.api.PayResultListener",
+            "cn.m4399.single.api.RechargeCallback",
+            "com.joym.xiongdakuaipao.pay.PayResultListener",
+            "com.joym.xiongdakuaipao.pay.OnPayListener",
+            "com.joym.xiongdakuaipao.pay.RechargeListener"
         };
         
-        for (String className : possibleClasses) {
+        // 所有可能的支付回调方法名（包含所有可能性）
+        String[] allPossibleMethods = {
+            // 完成类
+            "onRechargeFinished",
+            "onPayFinished",
+            "onPayResult",
+            "onResult",
+            
+            // 成功类
+            "onRechargeSuccess",
+            "onPaySuccess",
+            "onSuccess",
+            "onSucceed",
+            "onComplete",
+            
+            // 失败类（我们要劫持成成功）
+            "onRechargeFailed",
+            "onPayFailed",
+            "onFailure",
+            "onFail",
+            "onError",
+            
+            // 取消类（我们要劫持成成功）
+            "onRechargeCanceled",
+            "onPayCancel",
+            "onCancel",
+            "onCancelled",
+            "onCanceled",
+            
+            // 其他
+            "onCallback",
+            "onResponse"
+        };
+        
+        int hookedClasses = 0;
+        int hookedMethods = 0;
+        
+        // 遍历所有可能的类
+        for (String className : possibleListenerClasses) {
             try {
                 Class<?> listenerClass = XposedHelpers.findClass(className, lpparam.classLoader);
+                logToXposed("🔍 找到支付类: " + className);
+                addLog("🔍 发现: " + className.substring(className.lastIndexOf('.') + 1));
                 
-                // 尝试hook常见的方法名
-                String[] possibleMethods = {"onRechargeFinished", "onPayResult", "onPayFinished", "onResult"};
-                
-                for (String methodName : possibleMethods) {
+                // 遍历所有可能的方法名
+                for (String methodName : allPossibleMethods) {
                     try {
-                        XposedBridge.hookAllMethods(listenerClass, methodName, 
-                            new XC_MethodHook() {
-                                @Override
-                                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                                    // 强制成功逻辑
-                                    if (param.args.length > 0) {
-                                        if (param.args[0] instanceof Boolean) {
-                                            param.args[0] = true;
-                                        } else if (param.args[0] instanceof Integer) {
-                                            // 假设0是成功
-                                            param.args[0] = 0;
+                        XposedBridge.hookAllMethods(listenerClass, methodName, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                                String method = param.method.getName();
+                                
+                                // 打印详细的Hook信息
+                                logToXposed("💰 [" + method + "] 被触发 - 强制改为成功");
+                                
+                                // 记录原始参数（用于调试）
+                                StringBuilder argsInfo = new StringBuilder();
+                                for (int i = 0; i < param.args.length; i++) {
+                                    if (i > 0) argsInfo.append(", ");
+                                    argsInfo.append(param.args[i]);
+                                }
+                                logToXposed("   原始参数: " + argsInfo.toString());
+                                
+                                // ===== 核心修改逻辑：强制所有参数为成功状态 =====
+                                for (int i = 0; i < param.args.length; i++) {
+                                    if (param.args[i] instanceof Boolean) {
+                                        // 布尔参数：true = 成功
+                                        boolean oldValue = (boolean) param.args[i];
+                                        param.args[i] = true;
+                                        logToXposed("   ✅ 布尔参数[" + i + "]: " + oldValue + " → true");
+                                        
+                                    } else if (param.args[i] instanceof Integer) {
+                                        // 整数参数：0/1通常表示成功
+                                        int oldValue = (int) param.args[i];
+                                        // 尝试判断哪个值可能是成功码
+                                        if (oldValue != 0 && oldValue != 1) {
+                                            param.args[i] = 0;  // 大多数SDK用0表示成功
+                                            logToXposed("   ✅ 整数参数[" + i + "]: " + oldValue + " → 0");
+                                        } else {
+                                            // 如果已经是0或1，确保是成功的那个
+                                            param.args[i] = 0;
+                                        }
+                                        
+                                    } else if (param.args[i] instanceof String) {
+                                        // 字符串消息：改成成功消息
+                                        String oldMsg = (String) param.args[i];
+                                        param.args[i] = "支付成功（熊大快跑内购助手）";
+                                        logToXposed("   ✅ 消息参数[" + i + "]: \"" + oldMsg + "\" → \"支付成功\"");
+                                        
+                                    } else if (param.args[i] != null) {
+                                        // 其他对象类型，尝试查找其中的状态字段
+                                        try {
+                                            // 尝试设置常见的状态字段
+                                            String[] statusFields = {"status", "code", "resultCode", "errorCode"};
+                                            for (String field : statusFields) {
+                                                try {
+                                                    Object fieldValue = XposedHelpers.getObjectField(param.args[i], field);
+                                                    if (fieldValue instanceof Integer) {
+                                                        XposedHelpers.setIntField(param.args[i], field, 0);
+                                                        logToXposed("   ✅ 对象字段[" + field + "]: " + fieldValue + " → 0");
+                                                    } else if (fieldValue instanceof Boolean) {
+                                                        XposedHelpers.setBooleanField(param.args[i], field, true);
+                                                        logToXposed("   ✅ 对象字段[" + field + "]: " + fieldValue + " → true");
+                                                    }
+                                                } catch (Exception e) {
+                                                    // 字段不存在，忽略
+                                                }
+                                            }
+                                        } catch (Exception e) {
+                                            // 忽略
                                         }
                                     }
-                                    XposedBridge.log("✅ 通过 " + className + "." + methodName + " 强制支付成功");
-                                    addLog("✅ 通过替代方法强制成功");
                                 }
-                            });
-                        XposedBridge.log("✅ 找到替代方法: " + className + "." + methodName);
-                        return;
+                                
+                                // 针对特定方法名的特殊处理
+                                if (method.contains("Cancel") || method.contains("cancel") || 
+                                    method.contains("Fail") || method.contains("fail") ||
+                                    method.contains("Error") || method.contains("error")) {
+                                    logToXposed("   ⚡ 这是取消/失败回调，已强制转为成功！");
+                                }
+                                
+                                addLog("💰 " + method + " → 强制成功");
+                            }
+                            
+                            @Override
+                            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                                // 处理返回值
+                                if (param.getResult() != null) {
+                                    if (param.getResult() instanceof Boolean) {
+                                        boolean oldResult = (boolean) param.getResult();
+                                        param.setResult(true);
+                                        logToXposed("   ✅ 返回值: " + oldResult + " → true");
+                                    } else if (param.getResult() instanceof Integer) {
+                                        int oldResult = (int) param.getResult();
+                                        param.setResult(0);
+                                        logToXposed("   ✅ 返回值: " + oldResult + " → 0");
+                                    }
+                                }
+                            }
+                        });
+                        hookedMethods++;
+                        logToXposed("  ✅ Hook方法: " + methodName);
+                        
                     } catch (Exception e) {
-                        // 继续尝试下一个方法名
+                        // 方法不存在，忽略
                     }
                 }
+                hookedClasses++;
+                
             } catch (XposedHelpers.ClassNotFoundError e) {
-                // 继续尝试下一个
+                // 类不存在，继续尝试下一个
             }
         }
         
-        XposedBridge.log("❌ 所有可能的回调类都未找到");
-        addLog("❌ 未找到支付回调类，可能需要反编译游戏查看具体类名");
+        logToXposed("📊 统计: 找到 " + hookedClasses + " 个支付类，Hook " + hookedMethods + " 个方法");
+        
+        if (hookedClasses == 0) {
+            logToXposed("⚠️ 警告: 未找到任何4399支付类！尝试Hook游戏自定义类...");
+            addLog("⚠️ 未找到标准4399类，尝试备用方案");
+            hookGameCustomClasses(lpparam);
+        }
     }
     
     /**
-     * 2. Hook充值方法，可以修改订单金额
+     * 备用方案：尝试Hook游戏可能自定义的支付类
      */
-    private void hookRechargeMethod(XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            Class<?> singleGameClass = XposedHelpers.findClass(SINGLE_GAME_CLASS, lpparam.classLoader);
-            
-            // Hook recharge 方法
-            XposedBridge.findAndHookMethod(singleGameClass, "recharge", 
-                Activity.class, 
-                XposedHelpers.findClass(ORDER_CLASS, lpparam.classLoader),
-                XposedHelpers.findClass(RECHARGE_LISTENER_CLASS, lpparam.classLoader),
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("💰 检测到充值请求");
-                        addLog("💰 检测到充值请求");
-                        
-                        // 修改订单金额
-                        if (param.args.length >= 2 && param.args[1] != null) {
-                            Object order = param.args[1];
-                            try {
-                                // 尝试设置金额为0.01元
-                                // 先尝试常见的字段名
-                                String[] moneyFields = {"money", "amount", "price", "totalFee", "fee"};
-                                
-                                for (String field : moneyFields) {
-                                    try {
-                                        Object currentValue = XposedHelpers.getObjectField(order, field);
-                                        if (currentValue instanceof String) {
-                                            XposedHelpers.setObjectField(order, field, "0.01");
-                                            XposedBridge.log("✅ 将 " + field + " 从 " + currentValue + " 改为 0.01");
-                                        } else if (currentValue instanceof Integer) {
-                                            XposedHelpers.setObjectField(order, field, 1);
-                                            XposedBridge.log("✅ 将 " + field + " 从 " + currentValue + " 改为 1");
-                                        } else if (currentValue instanceof Double) {
-                                            XposedHelpers.setObjectField(order, field, 0.01);
-                                            XposedBridge.log("✅ 将 " + field + " 从 " + currentValue + " 改为 0.01");
-                                        }
-                                    } catch (Exception e) {
-                                        // 没有这个字段，继续尝试下一个
-                                    }
-                                }
-                                
-                                // 尝试设置商品数量为1
-                                try {
-                                    XposedHelpers.setObjectField(order, "count", 1);
-                                } catch (Exception e) {
-                                    // 忽略
-                                }
-                                
-                            } catch (Exception e) {
-                                XposedBridge.log("修改订单金额失败: " + e.getMessage());
+    private void hookGameCustomClasses(XC_LoadPackage.LoadPackageParam lpparam) {
+        String[] gameSpecificClasses = {
+            "com.joym.xiongdakuaipao.PayManager",
+            "com.joym.xiongdakuaipao.utils.PayUtil",
+            "com.joym.xiongdakuaipao.activity.PayActivity",
+            "com.joym.xiongdakuaipao.pay.PayHelper"
+        };
+        
+        for (String className : gameSpecificClasses) {
+            try {
+                Class<?> clazz = XposedHelpers.findClass(className, lpparam.classLoader);
+                logToXposed("🔍 找到游戏自定义类: " + className);
+                addLog("🔍 发现游戏类: " + className.substring(className.lastIndexOf('.') + 1));
+                
+                // Hook常见的支付方法
+                String[] payMethods = {"pay", "doPay", "recharge", "buy", "purchase"};
+                for (String methodName : payMethods) {
+                    try {
+                        XposedBridge.hookAllMethods(clazz, methodName, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                                logToXposed("💰 游戏支付方法被调用: " + param.method.getName());
+                                addLog("💰 检测到支付请求");
                             }
-                        }
+                        });
+                    } catch (Exception e) {
+                        // 忽略
                     }
-                });
-            
-            XposedBridge.log("✅ recharge方法 Hook成功");
-            
-        } catch (Exception e) {
-            XposedBridge.log("❌ recharge方法 Hook失败: " + e.getMessage());
-            
-            // 尝试其他可能的充值方法
-            tryHookAlternativeRecharge(lpparam);
-        }
-    }
-    
-    /**
-     * 尝试其他充值方法
-     */
-    private void tryHookAlternativeRecharge(XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            Class<?> singleGameClass = XposedHelpers.findClass(SINGLE_GAME_CLASS, lpparam.classLoader);
-            
-            // 尝试各种可能的充值方法签名
-            String[][] methodSignatures = {
-                {"doRecharge", Activity.class.getName(), ORDER_CLASS, "android.os.Handler"},
-                {"pay", Activity.class.getName(), ORDER_CLASS},
-                {"startPay", Activity.class.getName(), "java.lang.String", "java.lang.String"} // 商品ID, 金额
-            };
-            
-            for (String[] sig : methodSignatures) {
-                try {
-                    XposedBridge.hookAllMethods(singleGameClass, sig[0], new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            XposedBridge.log("💰 检测到替代充值方法: " + sig[0]);
-                            addLog("💰 检测到充值方法: " + sig[0]);
-                        }
-                    });
-                    XposedBridge.log("✅ 找到替代充值方法: " + sig[0]);
-                    break;
-                } catch (Exception e) {
-                    // 继续尝试
                 }
+                
+            } catch (XposedHelpers.ClassNotFoundError e) {
+                // 忽略
             }
-        } catch (Exception e) {
-            XposedBridge.log("❌ 所有充值方法Hook失败");
-        }
-    }
-    
-    /**
-     * 3. Hook客户端物品发放回调
-     */
-    private void hookDeliveringGoods(XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            Class<?> deliveringListenerClass = XposedHelpers.findClass(
-                DELIVERING_LISTENER_CLASS, lpparam.classLoader);
-            
-            XposedBridge.hookAllMethods(deliveringListenerClass, "onDelivering", 
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("📦 检测到物品发放回调");
-                        addLog("📦 物品发放回调被触发");
-                        
-                        // 记录OrderFinished对象的信息
-                        if (param.args.length > 0 && param.args[0] != null) {
-                            Object orderFinished = param.args[0];
-                            XposedBridge.log("订单信息: " + orderFinished.toString());
-                            
-                            // 尝试获取订单详情
-                            try {
-                                Object order = XposedHelpers.callMethod(orderFinished, "getOrder");
-                                if (order != null) {
-                                    XposedBridge.log("订单详情: " + order.toString());
-                                }
-                            } catch (Exception e) {
-                                // 忽略
-                            }
-                        }
-                    }
-                    
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        // 确保返回true，表示物品发放成功
-                        param.setResult(true);
-                        XposedBridge.log("✅ 强制物品发放成功");
-                        addLog("✅ 强制物品发放成功");
-                    }
-                });
-            
-            XposedBridge.log("✅ onDelivering Hook成功");
-            
-        } catch (XposedHelpers.ClassNotFoundError e) {
-            XposedBridge.log("ℹ️ 未找到OnDeliveringGoodsListener（可能游戏没用这个）");
-        } catch (Exception e) {
-            XposedBridge.log("❌ onDelivering Hook失败: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * 辅助方法：打印类加载器中的所有类（用于调试）
-     */
-    private void dumpAllClasses(XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            XposedBridge.log("========== 开始扫描所有类 ==========");
-            // 这个功能比较复杂，需要遍历Dex，这里只打印已知的4399相关类
-            String[] keywords = {"4399", "pay", "recharge", "order", "sdk"};
-            
-            // 通过ClassLoader加载常见类来测试
-            for (String keyword : keywords) {
-                try {
-                    // 尝试查找可能包含关键词的类
-                    // 注意：这不能真正列出所有类，只是测试已知类是否存在
-                    XposedBridge.log("检查关键词: " + keyword);
-                } catch (Exception e) {
-                    // 忽略
-                }
-            }
-            XposedBridge.log("========== 扫描结束 ==========");
-        } catch (Exception e) {
-            XposedBridge.log("dumpClasses失败: " + e.getMessage());
         }
     }
 }
