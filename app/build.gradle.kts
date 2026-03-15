@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.module"
+    namespace = "com.gudao.4399sdk"
     compileSdk = 36 // Can be modified as needed
 
     defaultConfig {
