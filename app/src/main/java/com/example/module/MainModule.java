@@ -1,4 +1,4 @@
-package com.example.module;
+package com.gudao.4399sdk;
 
 import android.annotation.SuppressLint;
 
