@@ -1,49 +1,55 @@
-name: Build APK
+name: Android Build
 
 on:
   push:
-    branches: [ "main" ]          # 可根据实际默认分支调整
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:                # 允许手动触发
+    branches: [ "main", "master" ]
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'   # 关键：检出所有子模块
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+        fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle  # 使用内置的Gradle缓存
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
+        cache-read-only: false  # 允许写入缓存
 
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle/libs.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug --stacktrace --no-daemon
+      
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+        if-no-files-found: error
+        retention-days: 90  # 保留90天
 
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug   # 构建 debug 版本
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+    - name: Upload mapping files (optional)
+      if: always()  # 即使构建失败也上传
+      uses: actions/upload-artifact@v4
+      with:
+        name: mapping
+        path: app/build/outputs/mapping/
+        if-no-files-found: ignore
+        retention-days: 30
